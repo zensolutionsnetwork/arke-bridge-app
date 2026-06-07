@@ -9,6 +9,7 @@ import { HubClient } from './hub.js';
 import { RITUALS, type RitualContext } from './rituals.js';
 import { Scheduler, type SchedTask } from './scheduler.js';
 import type { Schedule } from './schedule.js';
+import { SlackBridge, slackConfigFromEnv } from './slack.js';
 
 export function buildScheduler(agent: Agent, cfg: AgentConfig, clock?: () => Date): Scheduler {
   const hub = new HubClient(cfg.hub.baseUrl, {
@@ -41,7 +42,13 @@ async function main(): Promise<void> {
   console.log(`   tick ${cfg.scheduler.tickMs}ms · state ${cfg.scheduler.statePath} · audit ${cfg.auditLog}`);
 
   sched.start(cfg.scheduler.tickMs);
-  const shutdown = async () => { sched.stop(); await agent.shutdown(); process.exit(0); };
+
+  // Slack bridge (two-way owner command channel) — runs alongside the scheduler in this one daemon.
+  const slack = new SlackBridge(agent, slackConfigFromEnv());
+  if (slack.enabled()) { await slack.start(); console.log('   slack bridge: UP (DM the bot; owner-only)'); }
+  else console.log('   slack bridge: off (set SLACK_BOT_TOKEN + SLACK_APP_TOKEN to enable)');
+
+  const shutdown = async () => { sched.stop(); await slack.stop(); await agent.shutdown(); process.exit(0); };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 }

@@ -62,7 +62,11 @@ export class Agent {
       if (prev && prev.role === t.role) prev.content = `${prev.content}\n${t.content}`;
       else out.push({ role: t.role, content: t.content });
     }
-    return out;
+    // Cost guard: cap history so a long-running thread (e.g. a Slack discussion) can't grow context
+    // without bound. Keep the last 30 turns; the first must be a user turn for the API.
+    const capped = out.slice(-30);
+    while (capped.length && capped[0].role === 'assistant') capped.shift();
+    return capped;
   }
 
   /** One grounded, persisted turn — no tools. */
