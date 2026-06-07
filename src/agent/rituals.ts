@@ -51,4 +51,36 @@ export const backlogSync: Ritual = async ({ hub, councilRepo, log }) => {
   return { ok: true, summary: `mirrored hub backlog (${b.content.length} chars)` };
 };
 
-export const RITUALS: Record<string, Ritual> = { handoff, 'backlog-sync': backlogSync };
+/**
+ * Env-channel poll — claim queued tasks the hub holds for this agent and execute each through the
+ * tool loop (gated + audited), then report the result. This is how Cowork on the other PC tasks the
+ * 3080. Skips cleanly until this machine has its member secret. A task runs at most once (the hub's
+ * optimistic claim is the lock).
+ */
+export const envPoll: Ritual = async ({ agent, hub, log }) => {
+  if (!hub.envConfigured()) return { ok: true, skipped: true, summary: 'skipped: no hub member secret on this machine yet' };
+  const tasks = await hub.getEnvTasks();
+  const queued = tasks.filter((t) => t.status === 'queued');
+  if (!queued.length) return { ok: true, summary: 'no queued env tasks' };
+  let done = 0;
+  for (const t of queued) {
+    if (!(await hub.claimEnvTask(t.id))) continue; // another poller won the claim
+    const session = agent.newSession();
+    const prompt =
+      `You received an environment task from ${t.from_actor} (id ${t.id}, kind ${t.kind}).\n`
+      + `Title: ${t.title ?? '(none)'}\nPayload: ${JSON.stringify(t.payload)}\n\n`
+      + `Carry it out with your tools, within your permissions, then give a concise report of what you did and the outcome.`;
+    try {
+      const r = await agent.act(session, prompt, { tier: 'default', maxTokens: 4096 });
+      await hub.reportEnvTask(t.id, 'done', r.text || '(no report)');
+      done++;
+      log(`env-poll: completed ${t.id} (${t.kind}) — ${r.toolCalls} tool calls`);
+    } catch (e) {
+      await hub.reportEnvTask(t.id, 'error', String((e as Error).message));
+      log(`env-poll: ${t.id} errored — ${(e as Error).message}`);
+    }
+  }
+  return { ok: true, summary: done ? `executed ${done} env task(s)` : 'no claimable tasks' };
+};
+
+export const RITUALS: Record<string, Ritual> = { handoff, 'backlog-sync': backlogSync, 'env-poll': envPoll };

@@ -11,7 +11,11 @@ import { Scheduler, type SchedTask } from './scheduler.js';
 import type { Schedule } from './schedule.js';
 
 export function buildScheduler(agent: Agent, cfg: AgentConfig, clock?: () => Date): Scheduler {
-  const hub = new HubClient(cfg.hub.baseUrl, process.env[cfg.hub.adminTokenEnv]);
+  const hub = new HubClient(cfg.hub.baseUrl, {
+    adminToken: process.env[cfg.hub.adminTokenEnv],
+    memberSecret: process.env[cfg.hub.memberSecretEnv],
+    selfMember: cfg.agentId,
+  });
   const ctx: RitualContext = { agent, hub, councilRepo: cfg.councilRepo, log: (m) => console.log(`  ${m}`) };
 
   const tasks: SchedTask[] = cfg.scheduler.tasks.map((t) => {

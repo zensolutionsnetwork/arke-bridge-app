@@ -100,7 +100,7 @@ async function ritual(): Promise<void> {
   const agent = new Agent(cfg);
 
   const before = fs.readFileSync(path.join(repo, 'DAILY_HANDOFF.md'), 'utf8');
-  const res = await handoff({ agent, hub: new HubClient(cfg.hub.baseUrl, undefined), councilRepo: repo, log: (m) => console.log(`  ${m}`) });
+  const res = await handoff({ agent, hub: new HubClient(cfg.hub.baseUrl, {}), councilRepo: repo, log: (m) => console.log(`  ${m}`) });
   const after = fs.readFileSync(path.join(repo, 'DAILY_HANDOFF.md'), 'utf8');
   console.log(`  ritual summary: ${res.summary}`);
   check('handoff ritual reported ok', res.ok);

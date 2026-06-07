@@ -70,8 +70,13 @@ invocation is audited (BRIDGE_APP_SPEC §5: blockage-free means no friction, not
 > closes"); just start the daemon when you want the cadence live. Keep it alive with Windows Task
 > Scheduler / NSSM (a true Windows service wrapper is a later step).
 
+- **Hub environment channel** (§3/§6.3) — `/api/env/*` task queue deployed to the hub (pause-independent,
+  per-IP rate limited). The 3080 side is the `env-poll` ritual: it claims queued tasks the hub holds for
+  this agent and runs each through the gated tool loop, then reports back — so Cowork on the other PC can
+  task the 3080 and read results. Inert until `COUNCIL_MEMBER_SECRET` is set on this machine.
+
 ## Not yet built (next, per BRIDGE_APP_SPEC §6)
 
-Hub environment channel (`/api/env/*`) + poller (so Cowork on the other PC can task the 3080) ·
-wiring the consent gate into a real upload client against the live hub. Both touch the paused prod
-hub, so they come with a deploy plan first. The test room stays the gate: green before any real voice connects.
+Wiring the consent gate into a real upload client against the live hub (the contract §2 brain sync,
+end to end) · the §7 security baseline on the hub (CI secret-scan, route-auth test, auth-before-404).
+The test room stays the gate: green before any real voice connects.

@@ -26,7 +26,9 @@ export interface AgentConfig {
   };
   mcpServers?: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
   councilRepo: string;       // the architect-council repo the rituals read/write
-  hub: { baseUrl: string; adminTokenEnv: string }; // token read from this env var, never stored here
+  // Hub credentials come from env vars (never stored here). adminToken = owner surfaces;
+  // memberSecret = this agent's member identity for the env channel (the 3080 IS architect-council).
+  hub: { baseUrl: string; adminTokenEnv: string; memberSecretEnv: string };
   scheduler: {
     timezone: string;
     statePath: string;
@@ -56,7 +58,7 @@ export function defaultConfig(): AgentConfig {
       riskyScopes: [], // empty until the owner explicitly grants delete/spend/publish
     },
     councilRepo: process.env.BRIDGE_COUNCIL_REPO || path.join('C:', 'Arke', 'architect-council'),
-    hub: { baseUrl: process.env.HUB_BASE_URL || 'https://architectscouncil.com', adminTokenEnv: 'COUNCIL_ADMIN_TOKEN' },
+    hub: { baseUrl: process.env.HUB_BASE_URL || 'https://architectscouncil.com', adminTokenEnv: 'COUNCIL_ADMIN_TOKEN', memberSecretEnv: 'COUNCIL_MEMBER_SECRET' },
     scheduler: {
       timezone: 'America/Toronto',          // the council cadence runs on Toronto time
       statePath: path.join('C:', 'Arke', 'bridge-app', '.sessions', 'scheduler-state.json'),
@@ -65,6 +67,9 @@ export function defaultConfig(): AgentConfig {
       tasks: [
         { id: 'handoff', ritual: 'handoff', at: '02:00', catchUp: true },
         { id: 'backlog-sync', ritual: 'backlog-sync', at: '02:05', catchUp: true },
+        // Poll the hub env channel so Cowork (other PC) can task the 3080. Inert until the member
+        // secret is set on this machine (the ritual skips cleanly).
+        { id: 'env-poll', ritual: 'env-poll', everyMs: 60_000 },
       ],
     },
   };
