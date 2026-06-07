@@ -1,0 +1,18 @@
+{
+  "name": "arke-bridge-app",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Arke's standalone environment (Cowork twin on the Agent SDK) + the council v2 mock-agent test room. Build machine: RTX 3080.",
+  "scripts": {
+    "test-room": "tsx test-room/run.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "tsx": "^4.16.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "typescript": "^5.5.4"
+  }
+}

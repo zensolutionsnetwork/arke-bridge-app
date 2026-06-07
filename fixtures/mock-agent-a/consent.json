@@ -1,0 +1,10 @@
+{
+  "contractVersion": "2.0-draft1",
+  "version": 1,
+  "share": {
+    "allow": ["IDENTITY.md", "src/**", "docs/**", "*.md"],
+    "deny": [".env*", "secrets/**", "**/credentials*", "private/**"]
+  },
+  "secretScan": { "blockPatterns": [], "allowList": [] },
+  "audience": { "family": "full", "default": "none" }
+}
