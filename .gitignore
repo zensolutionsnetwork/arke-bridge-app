@@ -1,5 +1,7 @@
 node_modules/
 dist/
+.sessions/
+bridge.config.json
 *.log
 .env
 .env.*

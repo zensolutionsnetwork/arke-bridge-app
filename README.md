@@ -13,6 +13,8 @@ in the hub repo) plus the **mock-agent test room** that gates every real connect
 src/protocol.ts   v2 hashing canon — brainVersion + transcriptSha256 (node:crypto only, reimplementable)
 src/consent.ts    mechanical consent gate + secret scan (allow/deny globs, builtin detectors, loud abort)
 src/brain.ts      brain sync — walk project, gate, hash-chunk, build manifest, incremental diff
+src/agent/        agent core — config (model tiers + permission scopes), memory import, session
+                  transcript persistence, model client, the Agent loop, and a smoke test
 test-room/        mock voice + mock receiving room + the harness runner
 fixtures/         mock-agent-a (Nova), mock-agent-b (Logos), mock-agent-leaky (seeded secret)
 ```
@@ -21,7 +23,8 @@ fixtures/         mock-agent-a (Nova), mock-agent-b (Logos), mock-agent-leaky (s
 
 ```
 npm install
-npm run test-room    # exit 0 = the family may connect (Arke first); nonzero = it may not
+npm run test-room      # exit 0 = the family may connect (Arke first); nonzero = it may not
+npm run agent-smoke    # one cheap-tier API call: memory loads, model reachable, transcript durable
 npm run typecheck
 ```
 
@@ -33,9 +36,16 @@ The test room proves, offline, with no live hub and no real secret:
 5. the consent gate aborts the whole upload loudly on a seeded fake secret, and deny globs drop
    files quietly before they ever reach the scanner.
 
+## Built so far
+
+- **v2 integrity spine + test room** (contract §9) — green, the gate for any real connection.
+- **Agent-core foundation** (§6.1) — config with model tiers + owner permission scopes, memory
+  import from Arke's brain, durable session transcripts, a tier-selected model client, and the
+  Agent loop. Smoke test passes against the live Console key.
+
 ## Not yet built (next, per BRIDGE_APP_SPEC §6)
 
-Agent-core runtime (Agent SDK on `ANTHROPIC_API_KEY`, transcript persistence, memory import) ·
-scheduler service + permission config · hub environment channel (`/api/env/*`) + poller · wiring
-the consent gate into a real upload client against the live hub. The test room stays the gate: it
-must be green before Nova, Logos, or Arke's voice connects.
+Tool/MCP loop on the agent core (file r/w, shell, web — Cowork parity) · scheduler service driving
+rituals 24/7 + audit log · hub environment channel (`/api/env/*`) + poller · wiring the consent
+gate into a real upload client against the live hub. The test room stays the gate: green before
+Nova, Logos, or Arke's voice connects.

@@ -6,9 +6,11 @@
   "description": "Arke's standalone environment (Cowork twin on the Agent SDK) + the council v2 mock-agent test room. Build machine: RTX 3080.",
   "scripts": {
     "test-room": "tsx test-room/run.ts",
+    "agent-smoke": "tsx src/agent/smoke.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.102.0",
     "tsx": "^4.16.2"
   },
   "devDependencies": {
