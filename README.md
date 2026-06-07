@@ -13,8 +13,10 @@ in the hub repo) plus the **mock-agent test room** that gates every real connect
 src/protocol.ts   v2 hashing canon — brainVersion + transcriptSha256 (node:crypto only, reimplementable)
 src/consent.ts    mechanical consent gate + secret scan (allow/deny globs, builtin detectors, loud abort)
 src/brain.ts      brain sync — walk project, gate, hash-chunk, build manifest, incremental diff
-src/agent/        agent core — config (model tiers + permission scopes), memory import, session
-                  transcript persistence, model client, the Agent loop, and a smoke test
+src/agent/        agent core — config (tiers + permission scopes + MCP servers), memory import,
+                  session persistence, model client, permission gate, audit log, the agentic
+                  tool loop, and built-in tools (fs/shell/web) + an MCP client
+src/agent/tools/  read_file · write_file · edit_file · list_dir · shell · web_fetch/web_search
 test-room/        mock voice + mock receiving room + the harness runner
 fixtures/         mock-agent-a (Nova), mock-agent-b (Logos), mock-agent-leaky (seeded secret)
 ```
@@ -25,6 +27,7 @@ fixtures/         mock-agent-a (Nova), mock-agent-b (Logos), mock-agent-leaky (s
 npm install
 npm run test-room      # exit 0 = the family may connect (Arke first); nonzero = it may not
 npm run agent-smoke    # one cheap-tier API call: memory loads, model reachable, transcript durable
+npm run tool-smoke     # the agentic loop: real file task, permission gate denies+audits, MCP call
 npm run typecheck
 ```
 
@@ -39,13 +42,19 @@ The test room proves, offline, with no live hub and no real secret:
 ## Built so far
 
 - **v2 integrity spine + test room** (contract §9) — green, the gate for any real connection.
-- **Agent-core foundation** (§6.1) — config with model tiers + owner permission scopes, memory
-  import from Arke's brain, durable session transcripts, a tier-selected model client, and the
-  Agent loop. Smoke test passes against the live Console key.
+- **Agent-core foundation** (§6.1) — config (model tiers + permission scopes + MCP servers), memory
+  import from Arke's brain, durable session transcripts, tier-selected model client.
+- **Tool/MCP loop** (§1/§2) — the agent can ACT: read/write/edit files, run shell, fetch web, and
+  call MCP-server tools, every call passing a **fail-closed permission gate** (scope + allowPaths +
+  risky-scope checks) and landing in an **audit log**. `tool-smoke` proves it: a real file task, an
+  out-of-bounds write denied and recorded, and a live MCP tool round-trip.
+
+The permission model is granted once in config, not per prompt (no overnight stalls). `shell` is the
+deliberately-powerful scope — the gate governs whether it's granted, not what a command does; every
+invocation is audited (BRIDGE_APP_SPEC §5: blockage-free means no friction, not no rules).
 
 ## Not yet built (next, per BRIDGE_APP_SPEC §6)
 
-Tool/MCP loop on the agent core (file r/w, shell, web — Cowork parity) · scheduler service driving
-rituals 24/7 + audit log · hub environment channel (`/api/env/*`) + poller · wiring the consent
-gate into a real upload client against the live hub. The test room stays the gate: green before
-Nova, Logos, or Arke's voice connects.
+Scheduler service driving rituals 24/7 (the handoff + backlog sync that replace the v1 close) ·
+hub environment channel (`/api/env/*`) + poller · wiring the consent gate into a real upload client
+against the live hub. The test room stays the gate: green before Nova, Logos, or Arke's voice connects.

@@ -24,6 +24,7 @@ export interface AgentConfig {
     allowPaths: string[];   // path prefixes the agent may read/write
     riskyScopes: string[];  // delete / spend / publish — explicit, logged, owner-granted
   };
+  mcpServers?: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
 }
 
 const HOME = os.homedir();
@@ -42,7 +43,7 @@ export function defaultConfig(): AgentConfig {
       routine: 'claude-haiku-4-5-20251001',  // cheap tier for routine rituals
     },
     permissions: {
-      allowTools: ['read', 'write', 'edit', 'shell', 'web'],
+      allowTools: ['read', 'write', 'edit', 'shell', 'web', 'mcp'],
       allowPaths: [path.join('C:', 'Arke')],
       riskyScopes: [], // empty until the owner explicitly grants delete/spend/publish
     },
@@ -58,6 +59,7 @@ export function loadConfig(file = path.join('C:', 'Arke', 'bridge-app', 'bridge.
       ...base, ...over,
       models: { ...base.models, ...(over.models || {}) },
       permissions: { ...base.permissions, ...(over.permissions || {}) },
+      mcpServers: { ...(base.mcpServers || {}), ...(over.mcpServers || {}) },
     };
   } catch (e) {
     throw new Error(`bad bridge.config.json: ${(e as Error).message}`);

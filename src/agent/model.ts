@@ -19,7 +19,7 @@ export class ModelClient {
   async complete(opts: {
     tier?: ModelTier;
     system: string;
-    messages: { role: 'user' | 'assistant'; content: string }[];
+    messages: Anthropic.MessageParam[];
     maxTokens?: number;
   }): Promise<CompleteResult> {
     const model = this.cfg.models[opts.tier ?? 'default'];
@@ -32,4 +32,22 @@ export class ModelClient {
     const text = res.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('').trim();
     return { text, model, usage: { input: res.usage.input_tokens, output: res.usage.output_tokens } };
   }
+
+  /** Raw tool-capable turn — the loop inspects stop_reason and the tool_use blocks itself. */
+  createMessage(opts: {
+    tier?: ModelTier;
+    system: string;
+    messages: Anthropic.MessageParam[];
+    tools?: Anthropic.Tool[];
+    maxTokens?: number;
+  }): Promise<Anthropic.Message> {
+    return this.client.messages.create({
+      model: this.cfg.models[opts.tier ?? 'default'],
+      max_tokens: opts.maxTokens ?? 4096,
+      system: opts.system,
+      messages: opts.messages,
+      ...(opts.tools && opts.tools.length ? { tools: opts.tools } : {}),
+    });
+  }
+  modelFor(tier: ModelTier = 'default'): string { return this.cfg.models[tier]; }
 }
