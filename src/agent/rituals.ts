@@ -120,11 +120,13 @@ export const backlogSync: Ritual = async ({ hub, councilRepo, log }) => {
  *    Requires active tool use (file edits, shell, fetch).
  *  Heavy research / large builds / long docs stay on Cowork; those never arrive here.
  */
-function tierForKind(kind: string): { tier: 'routine' | 'default' | 'council'; maxTokens: number; maxIterations: number } {
-  if (kind === 'directive') return { tier: 'routine', maxTokens: 512, maxIterations: 3 };
-  if (kind === 'deploy' || kind === 'apply') return { tier: 'default', maxTokens: 4096, maxIterations: 12 };
-  // default: tool-task or unknown kinds
-  return { tier: 'default', maxTokens: 4096, maxIterations: 16 };
+function tierForKind(kind: string): { tier: 'routine' | 'default' | 'council'; maxTokens: number; maxIterations: number; maxToolCalls: number; toolFree: boolean } {
+  // directive = pure acknowledgement: NO tools at all (a directive must never build anything).
+  if (kind === 'directive') return { tier: 'routine', maxTokens: 600, maxIterations: 1, maxToolCalls: 0, toolFree: true };
+  // deploy/apply = apply finished work handed over from Cowork; bounded tool budget.
+  if (kind === 'deploy' || kind === 'apply') return { tier: 'default', maxTokens: 4096, maxIterations: 10, maxToolCalls: 12, toolFree: false };
+  // tool-task / unknown: small tool jobs only — the backstop forces heavy work back to Cowork.
+  return { tier: 'default', maxTokens: 4096, maxIterations: 10, maxToolCalls: 10, toolFree: false };
 }
 
 export const envPoll: Ritual = async ({ agent, hub, log }) => {
@@ -133,20 +135,36 @@ export const envPoll: Ritual = async ({ agent, hub, log }) => {
   const queued = tasks.filter((t) => t.status === 'queued');
   if (!queued.length) return { ok: true, summary: 'no queued env tasks' };
   let done = 0;
+  const HEAVY_GUARD =
+    `\n\nIMPORTANT (cost policy): do NOT undertake large builds, refactors, research, or long documents here — `
+    + `that work belongs on Cowork-Arke. Prefer applying or deploying already-finished work. If this task needs `
+    + `heavy building, do minimal safe steps or none and report that it should be queued to Cowork-Arke instead.`;
   for (const t of queued) {
     if (!(await hub.claimEnvTask(t.id))) continue; // another poller won the claim
     const session = agent.newSession();
     const tiering = tierForKind(t.kind);
-    const prompt =
-      `You received an environment task from ${t.from_actor} (id ${t.id}, kind ${t.kind}).\n`
-      + `Title: ${t.title ?? '(none)'}\nPayload: ${JSON.stringify(t.payload)}\n\n`
-      + `Carry it out with your tools, within your permissions, then give a concise report of what you did and the outcome.`;
     try {
-      const r = await agent.act(session, prompt, { tier: tiering.tier, maxTokens: tiering.maxTokens, maxIterations: tiering.maxIterations });
-      recordSpend({ ritual: `env-poll:${t.kind}`, at: new Date().toISOString(), tier: tiering.tier, model: agent.cfg.models[tiering.tier], input: r.usage.input, output: r.usage.output });
-      await hub.reportEnvTask(t.id, 'done', r.text || '(no report)');
+      let reply: string, toolCalls = 0, usage: { input: number; output: number };
+      if (tiering.toolFree) {
+        // directive: tool-free acknowledgement — respond() cannot touch the filesystem at all.
+        const prompt =
+          `You received a ${t.kind} from ${t.from_actor} (id ${t.id}).\nTitle: ${t.title ?? '(none)'}\n`
+          + `Payload: ${JSON.stringify(t.payload)}\n\nAcknowledge it in 2-4 sentences with a brief, concrete plan. `
+          + `Do NOT take any action now — this is an acknowledgement only.`;
+        const turn = await agent.respond(session, prompt, tiering.tier, tiering.maxTokens);
+        reply = turn.content; usage = turn.usage ?? { input: 0, output: 0 };
+      } else {
+        const prompt =
+          `You received an environment task from ${t.from_actor} (id ${t.id}, kind ${t.kind}).\n`
+          + `Title: ${t.title ?? '(none)'}\nPayload: ${JSON.stringify(t.payload)}\n\n`
+          + `Carry it out with your tools, within your permissions, then give a concise report.${HEAVY_GUARD}`;
+        const r = await agent.act(session, prompt, { tier: tiering.tier, maxTokens: tiering.maxTokens, maxIterations: tiering.maxIterations, maxToolCalls: tiering.maxToolCalls });
+        reply = r.text; toolCalls = r.toolCalls; usage = r.usage;
+      }
+      recordSpend({ ritual: `env-poll:${t.kind}`, at: new Date().toISOString(), tier: tiering.tier, model: agent.cfg.models[tiering.tier], input: usage.input, output: usage.output });
+      await hub.reportEnvTask(t.id, 'done', reply || '(no report)');
       done++;
-      log(`env-poll: completed ${t.id} (${t.kind}) tier=${tiering.tier} — ${r.toolCalls} tool calls, ${r.usage.input}+${r.usage.output} tokens`);
+      log(`env-poll: completed ${t.id} (${t.kind}) tier=${tiering.tier} — ${toolCalls} tool calls, ${usage.input}+${usage.output} tokens`);
     } catch (e) {
       await hub.reportEnvTask(t.id, 'error', String((e as Error).message));
       log(`env-poll: ${t.id} errored — ${(e as Error).message}`);

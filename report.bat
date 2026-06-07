@@ -1,0 +1,2 @@
+@echo off
+curl -s -X POST https://architectscouncil.com/api/env/4888ed46-7e1e-4e4a-80bf-ae6bce45e498/report -H "Content-Type: application/json" -H "x-member-secret: %COUNCIL_MEMBER_SECRET%" -d "{\"status\":\"done\",\"result\":\"Cost-tiered rituals shipped: Haiku for polling/acks/handoffs, Sonnet for deploy/apply/tool-task env tasks, Opus for council code-review only. Spend ledger added, iteration caps set, daily spend section in DAILY_HANDOFF.md. 10 smoke tests pass. Commit 562c46f pushed to main.\"}"

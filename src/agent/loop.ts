@@ -59,9 +59,11 @@ export async function runLoop(opts: {
   tier?: ModelTier;
   maxTokens?: number;
   maxIterations?: number;
+  maxToolCalls?: number; // hard backstop on total tool executions (safety against runaway autonomous work)
 }): Promise<LoopResult> {
   const { model, system, registry, ctx, session, tier, maxTokens } = opts;
   const maxIterations = opts.maxIterations ?? 24;
+  const maxToolCalls = opts.maxToolCalls ?? Infinity;
   const now = () => new Date().toISOString();
 
   const messages: Anthropic.MessageParam[] = [...opts.history, { role: 'user', content: opts.userText }];
@@ -87,10 +89,13 @@ export async function runLoop(opts: {
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const tu of toolUses) {
       toolCalls++;
-      const tool = registry.get(tu.name);
-      const out = tool
-        ? await execute(tool, tu.input, ctx)
-        : { content: `unknown tool: ${tu.name}`, isError: true };
+      // Hard backstop: once the budget is spent, refuse further tools with a guiding message so the
+      // model wraps up instead of grinding. Heavy work is meant to go to Cowork, not run away here.
+      const overBudget = toolCalls > maxToolCalls;
+      const tool = overBudget ? undefined : registry.get(tu.name);
+      const out = overBudget
+        ? { content: `tool budget (${maxToolCalls}) exceeded — stop and do not call more tools. If this task needs more work it is too heavy for the 3080; report that it should be queued to Cowork-Arke.`, isError: true }
+        : tool ? await execute(tool, tu.input, ctx) : { content: `unknown tool: ${tu.name}`, isError: true };
       session.append({ role: 'system', content: `[tool ${tu.name} → ${out.isError ? 'error' : 'ok'}] ${clip(out.content)}`, at: now() });
       results.push({ type: 'tool_result', tool_use_id: tu.id, content: out.content, is_error: out.isError });
     }

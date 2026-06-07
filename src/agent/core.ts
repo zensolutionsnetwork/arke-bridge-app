@@ -77,12 +77,12 @@ export class Agent {
   }
 
   /** Full agentic loop — the model may read/write/edit files, run shell, fetch web, call MCP tools. */
-  async act(session: Session, userText: string, opts: { tier?: ModelTier; maxTokens?: number; maxIterations?: number } = {}): Promise<LoopResult> {
+  async act(session: Session, userText: string, opts: { tier?: ModelTier; maxTokens?: number; maxIterations?: number; maxToolCalls?: number } = {}): Promise<LoopResult> {
     const registry = await this.initTools();
     return runLoop({
       model: this.model, system: this.system(), registry, ctx: this.ctx(session), session,
       history: this.history(session), userText,
-      tier: opts.tier ?? 'default', maxTokens: opts.maxTokens, maxIterations: opts.maxIterations,
+      tier: opts.tier ?? 'default', maxTokens: opts.maxTokens, maxIterations: opts.maxIterations, maxToolCalls: opts.maxToolCalls,
     });
   }
 }
