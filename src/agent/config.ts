@@ -47,10 +47,18 @@ export function defaultConfig(): AgentConfig {
       || path.join(HOME, '.claude', 'projects', 'C--Arke-architect-council', 'memory'),
     sessionsDir: process.env.BRIDGE_SESSIONS_DIR || path.join('C:', 'Arke', 'bridge-app', '.sessions'),
     auditLog: process.env.BRIDGE_AUDIT_LOG || path.join('C:', 'Arke', 'bridge-app', '.sessions', 'audit.log'),
+    // COST POLICY (2026-06-07 owner directive): this machine handles ONLY what needs 24/7 uptime.
+    // Heavy work (large builds, refactors, research, long docs) stays on Cowork-Arke and is handed
+    // over here via the env channel when finished. Each call uses the cheapest tier that does the job:
+    //   routine → Haiku  : polling, status checks, acks, plain summaries (env-poll directives, handoff)
+    //   default → Sonnet : env tasks with real tool work, deploy/apply tasks, meeting coordination
+    //   council → Opus   : council code-review rounds ONLY (depth pays there; not used elsewhere)
+    // Contexts are kept short; idle re-reading is avoided. Daily spend is logged to .sessions/daily-spend.jsonl
+    // and rolled up in DAILY_HANDOFF.md so Mathieu can watch the bill curve.
     models: {
-      council: 'claude-opus-4-8',            // council + code review — Opus depth (owner's decision)
-      default: 'claude-sonnet-4-6',
-      routine: 'claude-haiku-4-5-20251001',  // cheap tier for routine rituals
+      council: 'claude-opus-4-5',            // Opus: council code-review only
+      default: 'claude-sonnet-4-5',          // Sonnet: default for real tool work
+      routine: 'claude-haiku-4-5',           // Haiku: polling, acks, plain summaries
     },
     permissions: {
       allowTools: ['read', 'write', 'edit', 'shell', 'web', 'mcp'],
