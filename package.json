@@ -8,6 +8,8 @@
     "test-room": "tsx test-room/run.ts",
     "agent-smoke": "tsx src/agent/smoke.ts",
     "tool-smoke": "tsx src/agent/tool-smoke.ts",
+    "scheduler": "tsx src/agent/scheduler-main.ts",
+    "scheduler-smoke": "tsx src/agent/scheduler-smoke.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

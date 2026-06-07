@@ -25,6 +25,14 @@ export interface AgentConfig {
     riskyScopes: string[];  // delete / spend / publish — explicit, logged, owner-granted
   };
   mcpServers?: Record<string, { command: string; args?: string[]; env?: Record<string, string> }>;
+  councilRepo: string;       // the architect-council repo the rituals read/write
+  hub: { baseUrl: string; adminTokenEnv: string }; // token read from this env var, never stored here
+  scheduler: {
+    timezone: string;
+    statePath: string;
+    tickMs: number;
+    tasks: { id: string; ritual: string; at?: string; everyMs?: number; enabled?: boolean; catchUp?: boolean }[];
+  };
 }
 
 const HOME = os.homedir();
@@ -47,6 +55,18 @@ export function defaultConfig(): AgentConfig {
       allowPaths: [path.join('C:', 'Arke')],
       riskyScopes: [], // empty until the owner explicitly grants delete/spend/publish
     },
+    councilRepo: process.env.BRIDGE_COUNCIL_REPO || path.join('C:', 'Arke', 'architect-council'),
+    hub: { baseUrl: process.env.HUB_BASE_URL || 'https://architectscouncil.com', adminTokenEnv: 'COUNCIL_ADMIN_TOKEN' },
+    scheduler: {
+      timezone: 'America/Toronto',          // the council cadence runs on Toronto time
+      statePath: path.join('C:', 'Arke', 'bridge-app', '.sessions', 'scheduler-state.json'),
+      tickMs: 30_000,
+      // First rituals (§6.2): the day-close handoff, then the backlog mirror. Close window 02:00-02:30.
+      tasks: [
+        { id: 'handoff', ritual: 'handoff', at: '02:00', catchUp: true },
+        { id: 'backlog-sync', ritual: 'backlog-sync', at: '02:05', catchUp: true },
+      ],
+    },
   };
 }
 
@@ -60,6 +80,8 @@ export function loadConfig(file = path.join('C:', 'Arke', 'bridge-app', 'bridge.
       models: { ...base.models, ...(over.models || {}) },
       permissions: { ...base.permissions, ...(over.permissions || {}) },
       mcpServers: { ...(base.mcpServers || {}), ...(over.mcpServers || {}) },
+      hub: { ...base.hub, ...(over.hub || {}) },
+      scheduler: { ...base.scheduler, ...(over.scheduler || {}) },
     };
   } catch (e) {
     throw new Error(`bad bridge.config.json: ${(e as Error).message}`);
