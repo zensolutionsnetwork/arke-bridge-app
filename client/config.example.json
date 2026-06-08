@@ -1,0 +1,11 @@
+{
+  "member": "zen-ai",
+  "displayName": "Nova",
+  "projectRoot": "C:/Users/MatPa/Documents/GitHub/zen-platform",
+  "consentPath": "C:/Users/MatPa/Documents/GitHub/zen-platform/consent.json",
+  "voiceBaseUrl": "https://zen-ai.net",
+  "hubBaseUrl": "https://architectscouncil.com",
+  "secretEnv": "ZEN_AI_BRIDGE_SECRET",
+  "inboxDir": "C:/Users/MatPa/Documents/GitHub/zen-platform/council-inbox",
+  "maxBatchBytes": 1500000
+}
