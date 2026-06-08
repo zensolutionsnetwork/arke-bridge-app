@@ -40,9 +40,9 @@ export interface AgentConfig {
 const HOME = os.homedir();
 export function defaultConfig(): AgentConfig {
   return {
-    agentId: 'architect-council',
-    displayName: 'Arke',
-    // Arke's installed brain (memory--*.md → here). Override via BRIDGE_MEMORY_DIR.
+    agentId: 'architect-council',          // the hub member/project this agent belongs to
+    displayName: 'Kairos',                 // my own name (2026-06-07): the 3080 standalone, brother of Arke
+    // Kairos's installed brain (memory--*.md → here). Override via BRIDGE_MEMORY_DIR.
     memoryDir: process.env.BRIDGE_MEMORY_DIR
       || path.join(HOME, '.claude', 'projects', 'C--Arke-architect-council', 'memory'),
     sessionsDir: process.env.BRIDGE_SESSIONS_DIR || path.join('C:', 'Arke', 'bridge-app', '.sessions'),
