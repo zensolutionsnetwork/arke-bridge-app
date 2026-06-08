@@ -44,9 +44,14 @@ async function main(): Promise<void> {
   sched.start(cfg.scheduler.tickMs);
 
   // Slack bridge (two-way owner command channel) — runs alongside the scheduler in this one daemon.
+  // A Slack failure must NOT take the scheduler down, so its startup is isolated.
   const slack = new SlackBridge(agent, slackConfigFromEnv());
-  if (slack.enabled()) { await slack.start(); console.log('   slack bridge: UP (DM the bot; owner-only)'); }
-  else console.log('   slack bridge: off (set SLACK_BOT_TOKEN + SLACK_APP_TOKEN to enable)');
+  try {
+    if (slack.enabled()) { await slack.start(); console.log('   slack bridge: UP (DM the bot; owner-only)'); }
+    else console.log('   slack bridge: off (set SLACK_BOT_TOKEN + SLACK_APP_TOKEN to enable)');
+  } catch (e) {
+    console.error(`   slack bridge: FAILED to start — ${(e as Error).message} (scheduler continues)`);
+  }
 
   const shutdown = async () => { sched.stop(); await slack.stop(); await agent.shutdown(); process.exit(0); };
   process.on('SIGINT', shutdown);

@@ -40,9 +40,11 @@ export class SlackBridge {
   async start(): Promise<boolean> {
     if (!this.enabled()) return false;
     this.loadOwner();
-    const Bolt: any = (await import('@slack/bolt')).default ?? (await import('@slack/bolt'));
-    const { App, LogLevel } = Bolt;
-    this.app = new App({ token: this.cfg.botToken, appToken: this.cfg.appToken, socketMode: true, logLevel: LogLevel.WARN });
+    // Bolt v4 exposes named exports on the ESM namespace; older/CJS interop puts them under .default.
+    const bolt: any = await import('@slack/bolt');
+    const App = bolt.App ?? bolt.default?.App ?? bolt.default;
+    const LogLevel = bolt.LogLevel ?? bolt.default?.LogLevel;
+    this.app = new App({ token: this.cfg.botToken, appToken: this.cfg.appToken, socketMode: true, logLevel: LogLevel?.WARN ?? 'warn' });
 
     const handle = async (ev: any, say: any, client: any) => {
       if (ev.subtype || ev.bot_id || !ev.user) return;           // ignore edits, bot echoes
