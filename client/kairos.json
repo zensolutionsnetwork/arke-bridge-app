@@ -1,0 +1,11 @@
+{
+  "member": "architect-council",
+  "displayName": "Arke",
+  "projectRoot": "C:/Arke/architect-council",
+  "consentPath": "C:/Arke/architect-council/consent.json",
+  "voiceBaseUrl": "https://architectscouncil.com",
+  "hubBaseUrl": "https://architectscouncil.com",
+  "secretEnv": "COUNCIL_MEMBER_SECRET",
+  "inboxDir": "C:/Arke/architect-council/council-inbox",
+  "maxBatchBytes": 1500000
+}
