@@ -10,7 +10,11 @@
     "tool-smoke": "tsx src/agent/tool-smoke.ts",
     "scheduler": "tsx src/agent/scheduler-main.ts",
     "scheduler-smoke": "tsx src/agent/scheduler-smoke.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "client": "tsx client/member-client.ts",
+    "sync": "tsx client/member-client.ts sync --config client/kairos.json",
+    "verify": "tsx client/member-client.ts verify --config client/kairos.json",
+    "poll": "tsx client/member-client.ts poll --config client/kairos.json"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0",

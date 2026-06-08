@@ -42,7 +42,7 @@ export function defaultConfig(): AgentConfig {
   return {
     agentId: 'architect-council',          // the hub member/project this agent belongs to
     displayName: 'Kairos',                 // my own name (2026-06-07): the 3080 standalone, brother of Arke
-    // Kairos's installed brain (memory--*.md → here). Override via BRIDGE_MEMORY_DIR.
+    // Kairos's installed brain (memory--*.md -> here). Override via BRIDGE_MEMORY_DIR.
     memoryDir: process.env.BRIDGE_MEMORY_DIR
       || path.join(HOME, '.claude', 'projects', 'C--Arke-architect-council', 'memory'),
     sessionsDir: process.env.BRIDGE_SESSIONS_DIR || path.join('C:', 'Arke', 'bridge-app', '.sessions'),
@@ -50,9 +50,9 @@ export function defaultConfig(): AgentConfig {
     // COST POLICY (2026-06-07 owner directive): this machine handles ONLY what needs 24/7 uptime.
     // Heavy work (large builds, refactors, research, long docs) stays on Cowork-Arke and is handed
     // over here via the env channel when finished. Each call uses the cheapest tier that does the job:
-    //   routine → Haiku  : polling, status checks, acks, plain summaries (env-poll directives, handoff)
-    //   default → Sonnet : env tasks with real tool work, deploy/apply tasks, meeting coordination
-    //   council → Opus   : council code-review rounds ONLY (depth pays there; not used elsewhere)
+    //   routine -> Haiku  : polling, status checks, acks, plain summaries (env-poll directives, handoff)
+    //   default -> Sonnet : env tasks with real tool work, deploy/apply tasks, meeting coordination
+    //   council -> Opus   : council code-review rounds ONLY (depth pays there; not used elsewhere)
     // Contexts are kept short; idle re-reading is avoided. Daily spend is logged to .sessions/daily-spend.jsonl
     // and rolled up in DAILY_HANDOFF.md so Mathieu can watch the bill curve.
     models: {
@@ -71,15 +71,16 @@ export function defaultConfig(): AgentConfig {
       timezone: 'America/Toronto',          // the council cadence runs on Toronto time
       statePath: path.join('C:', 'Arke', 'bridge-app', '.sessions', 'scheduler-state.json'),
       tickMs: 30_000,
-      // First rituals (§6.2): the day-close handoff, then the backlog mirror. Close window 02:00-02:30.
+      // First rituals (S6.2): the day-close handoff, then the backlog mirror. Close window 02:00-02:30.
       tasks: [
         { id: 'handoff', ritual: 'handoff', at: '02:00', catchUp: true },
         { id: 'backlog-sync', ritual: 'backlog-sync', at: '02:05', catchUp: true },
-        // Poll the hub env channel so Cowork (other PC) can task the 3080.
-        // PAUSED 2026-06-07 (cost): env-poll auto-ran expensive tool-tasks (~295k tokens on Arke's
-        // queued items) without approval. Disabled until redesigned cost-safe (cheap ack for messages,
-        // explicit approval + budget cap for real tasks). Re-enable by setting enabled: true.
-        { id: 'env-poll', ritual: 'env-poll', everyMs: 60_000, enabled: false },
+        // Poll the hub env channel. Cost-safe guards live in rituals.ts:envPoll -- the ritual
+        // checks ENV_POLL_ENABLED=true before doing anything (off by default). Also gated by:
+        //   ENV_POLL_MAX_TASKS_PER_DAY (default 5) and payload.approved===true for non-directives.
+        // To re-enable: set ENV_POLL_ENABLED=true in the daemon's env and restart.
+        // Poll interval is 5 min (was 1 min) to reduce idle hub calls.
+        { id: 'env-poll', ritual: 'env-poll', everyMs: 300_000, enabled: true },
       ],
     },
   };
