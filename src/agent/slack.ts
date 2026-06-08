@@ -7,6 +7,8 @@
  * Tokens come from the env, never the config file:
  *   SLACK_BOT_TOKEN (xoxb-)  · SLACK_APP_TOKEN (xapp-, Socket Mode) · SLACK_OWNER_ID (U…)
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import type { Agent } from './core.js';
 import type { Session } from './session.js';
 
@@ -18,18 +20,39 @@ export function slackConfigFromEnv(): SlackConfig {
 export class SlackBridge {
   private app: any = null;
   private sessions = new Map<string, Session>(); // one continuous discussion per Slack channel
-  constructor(private agent: Agent, private cfg: SlackConfig) {}
+  private resolvedOwner: string | undefined;     // locked owner (from config or trust-on-first-DM)
+  private ownerFile: string;
+  constructor(private agent: Agent, private cfg: SlackConfig) {
+    this.ownerFile = path.join(agent.cfg.sessionsDir, 'slack-owner.id');
+  }
   enabled(): boolean { return !!(this.cfg.botToken && this.cfg.appToken); }
+
+  /** Resolve the owner: explicit config wins, else a previously locked id, else trust-on-first-DM. */
+  private loadOwner(): void {
+    this.resolvedOwner = this.cfg.ownerId
+      || (fs.existsSync(this.ownerFile) ? fs.readFileSync(this.ownerFile, 'utf8').trim() : undefined);
+  }
+  private lockOwner(userId: string): void {
+    this.resolvedOwner = userId;
+    try { fs.mkdirSync(path.dirname(this.ownerFile), { recursive: true }); fs.writeFileSync(this.ownerFile, userId, 'utf8'); } catch { /* */ }
+  }
 
   async start(): Promise<boolean> {
     if (!this.enabled()) return false;
+    this.loadOwner();
     const Bolt: any = (await import('@slack/bolt')).default ?? (await import('@slack/bolt'));
     const { App, LogLevel } = Bolt;
     this.app = new App({ token: this.cfg.botToken, appToken: this.cfg.appToken, socketMode: true, logLevel: LogLevel.WARN });
 
     const handle = async (ev: any, say: any, client: any) => {
-      if (ev.subtype || ev.bot_id) return;                       // ignore edits, bot echoes
-      if (this.cfg.ownerId && ev.user !== this.cfg.ownerId) { await say('I take direction only from Mathieu.'); return; }
+      if (ev.subtype || ev.bot_id || !ev.user) return;           // ignore edits, bot echoes
+      // Trust-on-first-DM: the first human to message becomes the locked owner; everyone else is refused.
+      if (!this.resolvedOwner) {
+        this.lockOwner(ev.user);
+        await say(`🔒 Locked to you (${ev.user}). I take direction only from you now, Mathieu.`);
+      } else if (ev.user !== this.resolvedOwner) {
+        await say('I take direction only from Mathieu.'); return;
+      }
       const text = String(ev.text || '').replace(/<@[^>]+>/g, '').trim(); // strip the @mention
       if (!text) return;
       try { await client.reactions.add({ channel: ev.channel, timestamp: ev.ts, name: 'eyes' }); } catch { /* best-effort ack */ }
