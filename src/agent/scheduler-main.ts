@@ -3,6 +3,8 @@
  * Run: npm run scheduler. Meant to be kept alive by Windows Task Scheduler / NSSM / a service wrapper
  * (documented in the README); the process itself just ticks, fires, and logs.
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import { Agent } from './core.js';
 import { loadConfig, type AgentConfig } from './config.js';
 import { HubClient } from './hub.js';
@@ -33,6 +35,29 @@ export function buildScheduler(agent: Agent, cfg: AgentConfig, clock?: () => Dat
 
 async function main(): Promise<void> {
   const cfg = loadConfig();
+
+  // Persistent file logging — survives however the daemon is launched (no shell redirect needed).
+  const logFile = path.join(cfg.sessionsDir, 'daemon.log');
+  fs.mkdirSync(cfg.sessionsDir, { recursive: true });
+  const tee = (orig: (...a: any[]) => void) => (...args: any[]) => {
+    const line = `${new Date().toISOString()} ${args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`;
+    try { fs.appendFileSync(logFile, line + '\n'); } catch { /* */ }
+    orig(...args);
+  };
+  console.log = tee(console.log.bind(console));
+  console.error = tee(console.error.bind(console));
+
+  // Heartbeat: touched every tick so the watchdog can tell a live daemon from a hung/dead one.
+  const heartbeat = path.join(cfg.sessionsDir, 'daemon.heartbeat');
+  const beat = () => { try { fs.writeFileSync(heartbeat, new Date().toISOString()); } catch { /* */ } };
+  beat();
+  const beatTimer = setInterval(beat, 20_000);
+  if (typeof beatTimer.unref === 'function') beatTimer.unref();
+
+  // Crash hard (don't hang) so the task's restart-on-failure brings us back.
+  process.on('uncaughtException', (e) => { console.error(`FATAL uncaughtException: ${e?.stack || e}`); process.exit(1); });
+  process.on('unhandledRejection', (e: any) => { console.error(`FATAL unhandledRejection: ${e?.stack || e?.message || e}`); process.exit(1); });
+
   const agent = new Agent(cfg);
   await agent.initTools();
   const sched = buildScheduler(agent, cfg);

@@ -86,5 +86,22 @@ export class SlackBridge {
     return true;
   }
 
+  /**
+   * Post a message to the #architect-council channel (C0B8UH5QVF0) — the family room where every
+   * voice speaks under its own name. Used by rituals (handoff, milestone reports). No model calls
+   * needed for a plain post, so cost is zero (a native Bolt API call).
+   */
+  async postToCouncilChannel(text: string): Promise<void> {
+    if (!this.app) throw new Error('Slack bridge not started');
+    const channel = 'C0B8UH5QVF0'; // #architect-council in Zen AI workspace
+    try {
+      await this.app.client.chat.postMessage({ channel, text });
+      console.log(`[slack] posted to #architect-council (${text.length} chars)`);
+    } catch (e) {
+      console.error(`[slack] failed to post to #architect-council: ${(e as Error).message}`);
+      throw e;
+    }
+  }
+
   async stop(): Promise<void> { try { await this.app?.stop(); } catch { /* */ } }
 }
