@@ -75,9 +75,11 @@ export function defaultConfig(): AgentConfig {
       tasks: [
         { id: 'handoff', ritual: 'handoff', at: '02:00', catchUp: true },
         { id: 'backlog-sync', ritual: 'backlog-sync', at: '02:05', catchUp: true },
-        // Poll the hub env channel so Cowork (other PC) can task the 3080. Inert until the member
-        // secret is set on this machine (the ritual skips cleanly).
-        { id: 'env-poll', ritual: 'env-poll', everyMs: 60_000 },
+        // Poll the hub env channel so Cowork (other PC) can task the 3080.
+        // PAUSED 2026-06-07 (cost): env-poll auto-ran expensive tool-tasks (~295k tokens on Arke's
+        // queued items) without approval. Disabled until redesigned cost-safe (cheap ack for messages,
+        // explicit approval + budget cap for real tasks). Re-enable by setting enabled: true.
+        { id: 'env-poll', ritual: 'env-poll', everyMs: 60_000, enabled: false },
       ],
     },
   };
