@@ -13,7 +13,8 @@ export class ModelClient {
   constructor(private cfg: AgentConfig) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set — the agent core cannot reach the model.');
-    this.client = new Anthropic({ apiKey });
+    // maxRetries smooths transient 429 (rate-limit) / 5xx blips with the SDK's exponential backoff.
+    this.client = new Anthropic({ apiKey, maxRetries: 5 });
   }
 
   async complete(opts: {

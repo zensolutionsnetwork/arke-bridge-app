@@ -46,26 +46,37 @@ export class SlackBridge {
     const LogLevel = bolt.LogLevel ?? bolt.default?.LogLevel;
     this.app = new App({ token: this.cfg.botToken, appToken: this.cfg.appToken, socketMode: true, logLevel: LogLevel?.WARN ?? 'warn' });
 
-    const handle = async (ev: any, say: any, client: any) => {
+    const queues = new Map<string, Promise<void>>(); // per-channel serialization (rapid msgs don't collide)
+    const handle = async (ev: any, say: any, _client: any) => {
       if (ev.subtype || ev.bot_id || !ev.user) return;           // ignore edits, bot echoes
       // Trust-on-first-DM: the first human to message becomes the locked owner; everyone else is refused.
       if (!this.resolvedOwner) {
         this.lockOwner(ev.user);
+        console.log(`[slack] owner locked to ${ev.user}`);
         await say(`🔒 Locked to you (${ev.user}). I take direction only from you now, Mathieu.`);
       } else if (ev.user !== this.resolvedOwner) {
         await say('I take direction only from Mathieu.'); return;
       }
       const text = String(ev.text || '').replace(/<@[^>]+>/g, '').trim(); // strip the @mention
       if (!text) return;
-      try { await client.reactions.add({ channel: ev.channel, timestamp: ev.ts, name: 'eyes' }); } catch { /* best-effort ack */ }
-      try {
-        let session = this.sessions.get(ev.channel);
-        if (!session) { session = this.agent.newSession(); this.sessions.set(ev.channel, session); }
-        const r = await this.agent.act(session, text, { tier: 'default', maxTokens: 2048, maxIterations: 12, maxToolCalls: 16 });
-        await say(r.text || '(no reply)');
-      } catch (e) {
-        await say(`error: ${(e as Error).message}`);
-      }
+
+      // Process in order per channel so a slow reply can't interleave with the next message.
+      const prev = queues.get(ev.channel) ?? Promise.resolve();
+      const next = prev.then(async () => {
+        const t0 = Date.now();
+        console.log(`[slack] <- msg from ${ev.user} (${text.length} chars)`);
+        try {
+          let session = this.sessions.get(ev.channel);
+          if (!session) { session = this.agent.newSession(); this.sessions.set(ev.channel, session); }
+          const r = await this.agent.act(session, text, { tier: 'default', maxTokens: 2048, maxIterations: 12, maxToolCalls: 16 });
+          await say(r.text || '(no reply)');
+          console.log(`[slack] -> replied in ${Date.now() - t0}ms (${r.toolCalls} tools, ${r.usage.input}+${r.usage.output} tok)`);
+        } catch (e) {
+          console.error(`[slack] ERROR after ${Date.now() - t0}ms: ${(e as Error).message}`);
+          try { await say(`I hit an error: ${(e as Error).message}`); } catch (e2) { console.error(`[slack] reply failed: ${(e2 as Error).message}`); }
+        }
+      });
+      queues.set(ev.channel, next.catch(() => {}));
     };
 
     this.app.message(async ({ message, say, client }: any) => handle(message, say, client));      // DMs
